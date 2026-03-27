@@ -53,9 +53,3 @@ def extract_insurance_info_2(pdf_path):
     else: 
         return 1
 
-
-
-#pdf_path = r"C:\Users\lemon\mu_code\VSCODEprograms\streamlit\despliegue_3\Recibo.pdf"
-#insurance_info = extract_insurance_info(pdf_path)
-#print(insurance_info)
-
