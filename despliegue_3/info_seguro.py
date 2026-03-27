@@ -111,9 +111,5 @@ def extract_insurance_info(pdf_path):
     }
 
 
-#cómo usar la función------
-#pdf_path = r"C:\Users\lemon\mu_code\VSCODEprograms\streamlit\despliegue_3\Recibo.pdf"
-#insurance_info = extract_insurance_info(pdf_path)
-#print(insurance_info)
 
 
