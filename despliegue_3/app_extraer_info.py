@@ -15,7 +15,6 @@ def main():
         if archivo_doc is not None:
 
             tester = extract_insurance_info_2(archivo_doc)
-            print(tester)
 
             if tester == 1:
 
