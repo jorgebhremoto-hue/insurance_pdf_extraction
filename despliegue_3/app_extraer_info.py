@@ -61,8 +61,3 @@ Fecha Límite de pago: {info_seguro['Fecha Límite']}"""
 
 if __name__ == '__main__':
     main()
-
-
-#remover antes del despliegue
-#cd C:\Users\lemon\mu_code\VSCODEprograms\streamlit\despliegue_3
-#streamlit run app_extraer_info.py
