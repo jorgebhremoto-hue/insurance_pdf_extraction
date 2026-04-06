@@ -1,113 +1,111 @@
 from pypdf import PdfReader
 import re
 
-def buscador_palabras(search_word, path):
+def extract_insurance_info(path):
     """
-    La siguiente función tiene como objectivo buscar una palabra 'search_word' y una vez encontrada
-    si existe arrojará la linea dónde la encontró para su procesamiento,
-    dado a que no necesariamente nuestra información estára en la palabra clave.
+    La siguiente función va a leer un PDF y separarlo por lineas
+    Con un Diccionario para las palabras clave que por defecto no van a tener nada
+    Vamos a hacer un ciclo for para navegar por todas las lineas del texto
+    Dentro de ese ciclo for va a ver otro ciclo for donde vamos a recorrer todo el diccionario de posiciones
+    Si el archivo no es una póliza de Chubb, entonces va a regresar None
+    En ese ciclo vamos a buscar si existe alguna de nuestras palabra clave y de existir, 
+    vamos a tomar el número de linea dónde está la palabra
+
+    En la siguiente parte vamos a procesar las lineas para extraer nuestra información deseada: Nombre, Póliza, Monto, Fecha límite de pago
+
+    y finalmente regresamos la información
     """
+
     reader = PdfReader(path)
-    number_of_pages = len(reader.pages)
+    number_of_pages = len(reader.pages)  #para que usamos esto?
     page = reader.pages[0]
     text = page.extract_text()
     lines = text.split("\n")
-    contador = 0
-    resultado = contador
-    for line in lines:
-        #print(line) ##para testing
-        contador += 1
-        if search_word in line:
-            #print(f"la palabra '{search_word}' fue encontrada en la linea {contador}") # saber si encontró la palabra
-            resultado = contador
-            break
-    if resultado == 0:
-        #print(f"la palabra {search_word} no fue encontrada")
-        t = 0
-    return resultado
 
-def extract_insurance_info(pdf_path):
-    """
-    La siguiente función tiene como objectivo definir nuestras palabras claves
-    para la función buscador_palabras, si es que existé información en el pdf.
-    después procesará la información para obtener los parametros del recibo
-    pendiente de pago.
-    """
 
-    reader = PdfReader(pdf_path)
-    number_of_pages = len(reader.pages)
-    page = reader.pages[0]
-    text = page.extract_text()
-    num_pages = len(reader.pages)
-    lines = text.split("\n")
-    search_word1 = "C.P."
-    search_word2 = "ASEGURADO"
-    search_word3 = "AMIS"
-    search_word4 = "PÓLIZA"
-    search_word5 = "MONEDA"
-    search_word6 = "PLAN"
-    search_word7 = "No tiene avisos de cobro."
-    #verificando que el archivo no esté en blanco
-    resultado = buscador_palabras(search_word7, pdf_path)
+    posiciones_de_palabras = { 
+        "C.P." : None, 
+        "ASEGURADO": None,   # la ini y fin vigencia también está aquí
+        "AMIS": None,
+        "PÓLIZA": None,
+        "MONEDA": None,
+        "PLAN": None,
+        "No tiene avisos de cobro.": None
+        }
 
-    if resultado != 0:
-        return None
 
-    #procesando el nombre
-    resultado = buscador_palabras(search_word1, pdf_path)
-    nombre = lines[resultado]
-    #procesando el monto a pagar
-    resultado = buscador_palabras(search_word2, pdf_path)
-    monto = lines[resultado - 2]
+    for line_number, line in enumerate(lines):
+        #print(line)
+        for palabra, posicion in posiciones_de_palabras.items():
+            if palabra in line and posiciones_de_palabras[palabra] is None:
+                posiciones_de_palabras[palabra] = line_number
+
+    ###Condicional Qualitas Seguros 
+
+    #if posiciones_de_palabras["No tiene avisos de cobro."] == None:
+        #return None
+
+    ####Nombre
+    nombre = lines[posiciones_de_palabras["C.P."] + 1]
+
+    ###Monto
+    monto = lines[posiciones_de_palabras["ASEGURADO"] - 1]
+
     #procesando el vehículo
-    resultado = buscador_palabras(search_word3, pdf_path)
-    split_parts = lines[resultado - 1].split("AMIS")
-    if resultado == 0:
-        auto_b = '***'
+    existencia_vehiculo = lines[posiciones_de_palabras["AMIS"]]
+    separar_para_auto = lines[posiciones_de_palabras["AMIS"]].split("AMIS")
+    if existencia_vehiculo == None:
+        auto = '***'
     else:
-        auto_b = split_parts[0].strip()
-        split_parts = auto_b.split(")")
-        auto = split_parts[1].strip()
+        cadena_auto_original = separar_para_auto[0].strip()
+        partes = cadena_auto_original.split(")")
+        auto = partes[1].strip()
+
+    ###Serie
+    recibos_cadena_posicion = posiciones_de_palabras["MONEDA"] + 1
+    separar_recibos_cadena = lines[recibos_cadena_posicion].split("/")
+    total_recibos = separar_recibos_cadena[1].lstrip()
+    recibo_actual = separar_recibos_cadena[0]
+
+    if total_recibos == '04':
+        formapago = 'Trimestral'
+    elif total_recibos == '02':
+        formapago = 'Semestral'
+    elif total_recibos == '12':
+        formapago = 'Mensual'
+    elif total_recibos == '01':
+        formapago = 'contado'
+    else:
+        formapago = '*'
+
     #procesando póliza, endoso y fecha límite de pago
-    resultado = buscador_palabras(search_word4, pdf_path)
-    split_parts = lines[resultado - 1].split(" ")
-    control = split_parts[6].split("CONTROL")
-    poliza = control[1]
-    endoso = split_parts[7]
-    flimite = split_parts[8]
-    #procesando serie y forma de pago
-    resultado = buscador_palabras(search_word5, pdf_path)
-    #print(lines[resultado])
-    split_parts = lines[resultado].split("/")
-    seriea = split_parts[1].lstrip()
-    serie = split_parts[0]
-    if seriea == '04':
-        fpago = 'Trimestral'
-    elif seriea == '02':
-        fpago = 'Semestral'
-    elif serie == '12':
-        fpago = 'Mensual'
-    elif serie == '01':
-        fpago = 'contado'
-    else:
-        fpago = '*'
+    poliza_endoso_vencimiento_posicion = posiciones_de_palabras["PÓLIZA"]
+    separar_datos_cadena = lines[poliza_endoso_vencimiento_posicion].split(" ")
+    separar_dato_poliza = separar_datos_cadena[6].split("CONTROL")
+
+    poliza = separar_dato_poliza[1]
+    endoso = separar_datos_cadena[7]
+    flimite = separar_datos_cadena[8]
+
     #procesando Inicio y Fin de Vigencia
-    resultado = buscador_palabras(search_word6, pdf_path)
-    fini = lines[resultado].lstrip()
-    ffin = lines[resultado + 1].lstrip()
+    ancla_vigencia_posicion = posiciones_de_palabras["PLAN"]
+    fecha_ini_vigencia = lines[ancla_vigencia_posicion + 1].lstrip()
+    fecha_fin_vigencia = lines[ancla_vigencia_posicion + 2].lstrip()
+
+    print("termino el debug")
 
     return{
         "Nombre": nombre,
         "Monto" : monto,
         "Auto" : auto,
-        "Serie" : serie,
-        "Seriea" : seriea,
+        "Serie" : recibo_actual,
+        "Seriea" : total_recibos,
         "Póliza" : poliza,
         "Endoso" : endoso,
         "Fecha Límite" : flimite,
-        "Forma de pago" : fpago,
-        "Inicio de Vigencia" : fini,
-        "Fin de Vigencia" : ffin
+        "Forma de pago" : formapago,
+        "Inicio de Vigencia" : fecha_ini_vigencia,
+        "Fin de Vigencia" : fecha_fin_vigencia
     }
 
 
